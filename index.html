@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ALFAMART P263 BK 0 CIPTA MUDA</title>
+<style>
+:root{--red:#d71920;--dark:#202124;--muted:#6b7280;--line:#e5e7eb;--bg:#f5f6f8}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--dark)}
+header{background:var(--red);color:#fff;padding:22px 16px;text-align:center;box-shadow:0 2px 8px #0002}
+header h1{font-size:clamp(19px,4vw,28px);margin:0;font-weight:800;letter-spacing:.3px}
+.brand{margin-top:7px;font-size:17px;font-weight:700;letter-spacing:1px}
+.sub{font-size:12px;opacity:.9;margin-top:5px}
+main{max-width:1100px;margin:20px auto;padding:0 12px 40px}
+.panel{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 2px 8px #00000008}
+h2{font-size:18px;margin:0 0 12px}
+.upload{border:2px dashed #d1d5db;border-radius:12px;padding:22px 14px;text-align:center;background:#fafafa}
+input[type=file]{display:block;width:100%;max-width:460px;margin:12px auto}
+button{background:var(--red);color:#fff;border:0;border-radius:9px;padding:10px 14px;font-weight:700;cursor:pointer}
+button:disabled{opacity:.5;cursor:not-allowed}
+.note{font-size:13px;color:var(--muted);line-height:1.5}
+.status{margin-top:12px;font-size:14px;overflow-wrap:anywhere}
+.error{color:#b42318}.success{color:#087443}
+.layout{display:grid;grid-template-columns:240px minmax(0,1fr);gap:14px}
+.table-list{display:flex;flex-direction:column;gap:7px}
+.table-btn{background:#f3f4f6;color:#202124;text-align:left;font-weight:600;overflow-wrap:anywhere}
+.table-btn.active{background:#fee2e2;color:#991b1b;outline:1px solid #fecaca}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+input[type=search]{flex:1;min-width:150px;padding:10px 12px;border:1px solid #d1d5db;border-radius:9px;font-size:14px}
+.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:9px;max-height:65vh}
+table{border-collapse:collapse;width:100%;font-size:13px;background:#fff}
+th,td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--line);max-width:320px;overflow-wrap:anywhere;white-space:pre-wrap}
+th{position:sticky;top:0;background:#f3f4f6;z-index:1}
+tr:nth-child(even) td{background:#fcfcfd}
+.meta{font-size:13px;color:var(--muted);margin:8px 0}
+.empty{padding:22px;text-align:center;color:var(--muted)}
+footer{text-align:center;color:#6b7280;font-size:12px;padding:18px}
+@media(max-width:680px){.layout{grid-template-columns:1fr}.table-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.table-btn{font-size:12px;padding:9px}.panel{padding:12px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>ALFAMART P263 BK 0 CIPTA MUDA</h1>
+  <div class="brand">ꦏꦺꦴꦥꦶꦢ꧀ꦗꦤ꧀ꦗꦶꦩꦤ꧀ꦠꦤ꧀</div>
+  <div class="sub">Database Viewer • Baca-Saja</div>
+</header>
+<main>
+  <section class="panel">
+    <h2>📂 Buka file database</h2>
+    <div class="upload">
+      <div><strong>Pilih file database .db dari HP Anda</strong></div>
+      <input id="file" type="file" accept=".db,.sqlite,.sqlite3,application/octet-stream">
+      <button id="openBtn">Buka Database</button>
+      <div class="note" style="margin-top:10px">File diproses di browser pada perangkat Anda. Website ini tidak mengunggah file ke server.</div>
+      <div id="status" class="status" role="status"></div>
+    </div>
+  </section>
+  <section id="viewer" class="panel" hidden>
+    <h2>Isi Database</h2>
+    <div class="meta" id="dbInfo"></div>
+    <div class="layout">
+      <div>
+        <h2 style="font-size:15px">Daftar Tabel</h2>
+        <div id="tables" class="table-list"></div>
+      </div>
+      <div>
+        <div class="toolbar">
+          <input id="search" type="search" placeholder="Cari pada tabel ini...">
+          <button id="csvBtn" disabled>Unduh CSV</button>
+        </div>
+        <div id="tableTitle" class="meta"></div>
+        <div id="grid" class="table-wrap"><div class="empty">Pilih tabel untuk melihat data.</div></div>
+        <div id="pageInfo" class="meta"></div>
+        <div class="toolbar">
+          <button id="prevBtn" disabled>Sebelumnya</button>
+          <button id="nextBtn" disabled>Berikutnya</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+<footer>Website Ini Dikelola oleh Admin kopidjandjimantan</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+let db=null, currentTable='', allRows=[], columns=[], page=0;
+const PAGE_SIZE=100;
+function status(msg, cls=''){ $('status').className='status '+cls; $('status').textContent=msg; }
+function quoteIdent(s){ return '"' + String(s).replace(/"/g,'""') + '"'; }
+$('openBtn').addEventListener('click', async ()=>{
+  const file=$('file').files[0];
+  if(!file){status('Pilih file .db terlebih dahulu.','error');return;}
+  $('openBtn').disabled=true; status('Sedang membaca file...');
+  try{
+    if(typeof initSqlJs!=='function') throw new Error('Pustaka pembaca database gagal dimuat. Periksa koneksi internet lalu muat ulang halaman.');
+    const SQL=await initSqlJs({locateFile: f=>'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/'+f});
+    const bytes=new Uint8Array(await file.arrayBuffer());
+    db=new SQL.Database(bytes);
+    const res=db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name");
+    const names=res.length?res[0].values.map(r=>r[0]):[];
+    if(!names.length) throw new Error('File terbuka, tetapi tidak ada tabel yang dapat ditampilkan.');
+    $('viewer').hidden=false;
+    $('dbInfo').textContent=`File: ${file.name} • Ukuran: ${(file.size/1024).toFixed(1)} KB • ${names.length} tabel`;
+    $('tables').innerHTML='';
+    names.forEach((name,i)=>{
+      const b=document.createElement('button'); b.className='table-btn'; b.textContent=name;
+      b.addEventListener('click',()=>showTable(name,b)); $('tables').appendChild(b);
+      if(i===0) showTable(name,b);
+    });
+    status('Database berhasil dibuka. Data ditampilkan dalam mode baca-saja.','success');
+  }catch(e){
+    db=null; $('viewer').hidden=true;
+    status('Tidak bisa membaca file ini sebagai SQLite standar. '+e.message+' Jika file berasal dari aplikasi khusus, file mungkin terenkripsi atau memakai format lain. Coba ekspor/unduh database sebagai SQLite asli (.db) yang tidak terenkripsi.','error');
+  }finally{$('openBtn').disabled=false;}
+});
+function showTable(name,button){
+  currentTable=name; page=0;
+  document.querySelectorAll('.table-btn').forEach(b=>b.classList.toggle('active',b===button));
+  try{
+    const r=db.exec(`SELECT * FROM ${quoteIdent(name)}`);
+    if(!r.length){columns=[];allRows=[];}else{columns=r[0].columns;allRows=r[0].values;}
+    $('search').value=''; render();
+  }catch(e){$('grid').innerHTML='<div class="empty">Gagal membaca tabel: '+e.message+'</div>';}
+}
+function filteredRows(){
+ const q=$('search').value.trim().toLowerCase();
+ if(!q)return allRows;
+ return allRows.filter(row=>row.some(v=>String(v??'').toLowerCase().includes(q)));
+}
+function render(){
+ const rows=filteredRows(), totalPages=Math.max(1,Math.ceil(rows.length/PAGE_SIZE));
+ page=Math.min(page,totalPages-1);
+ $('tableTitle').textContent=`Tabel: ${currentTable}`;
+ if(!columns.length){$('grid').innerHTML='<div class="empty">Tabel ini kosong.</div>';$('pageInfo').textContent='0 baris';$('csvBtn').disabled=true;return;}
+ const shown=rows.slice(page*PAGE_SIZE,(page+1)*PAGE_SIZE);
+ let html='<table><thead><tr>'+columns.map(c=>'<th>'+esc(c)+'</th>').join('')+'</tr></thead><tbody>';
+ html+=shown.map(row=>'<tr>'+row.map(v=>'<td>'+esc(v===null?'NULL':String(v))+'</td>').join('')+'</tr>').join('');
+ html+='</tbody></table>';
+ $('grid').innerHTML=html;
+ $('pageInfo').textContent=`Menampilkan ${rows.length? page*PAGE_SIZE+1:0}–${Math.min((page+1)*PAGE_SIZE,rows.length)} dari ${rows.length} baris hasil pencarian`;
+ $('prevBtn').disabled=page===0;$('nextBtn').disabled=page>=totalPages-1;$('csvBtn').disabled=false;
+}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+$('search').addEventListener('input',()=>{page=0;render()});
+$('prevBtn').addEventListener('click',()=>{if(page>0){page--;render()}});
+$('nextBtn').addEventListener('click',()=>{page++;render()});
+$('csvBtn').addEventListener('click',()=>{
+ const rows=filteredRows(), data=[columns,...rows].map(row=>row.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');
+ const blob=new Blob(['\ufeff'+data],{type:'text/csv;charset=utf-8;'}), url=URL.createObjectURL(blob);
+ const a=document.createElement('a');a.href=url;a.download=(currentTable||'data')+'.csv';a.click();URL.revokeObjectURL(url);
+});
+</script>
+</body>
+</html>
